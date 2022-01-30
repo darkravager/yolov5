@@ -99,7 +99,7 @@ def create_dataloader(path, imgsz, batch_size, stride, single_cls=False, hyp=Non
     with torch_distributed_zero_first(rank):  # init dataset *.cache only once if DDP
         dataset = LoadImagesAndLabels(path, imgsz, batch_size,
                                       augment=augment,  # augmentation
-                                      val_augment = val_augment
+                                      val_augment = val_augment,
                                       hyp=hyp,  # hyperparameters
                                       rect=rect,  # rectangular batches
                                       cache_images=cache,
