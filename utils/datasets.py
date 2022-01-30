@@ -91,7 +91,7 @@ def exif_transpose(image):
     return image
 
 
-def create_dataloader(path, imgsz, batch_size, stride, single_cls=False, hyp=None, augment=False, cache=False, pad=0.0,
+def create_dataloader(path, imgsz, batch_size, stride, single_cls=False, hyp=None,val_augment=False,augment=False, cache=False, pad=0.0,
                       rect=False, rank=-1, workers=8, image_weights=False, quad=False, prefix='', shuffle=False):
     if rect and shuffle:
         LOGGER.warning('WARNING: --rect is incompatible with DataLoader shuffle, setting shuffle=False')
@@ -99,6 +99,7 @@ def create_dataloader(path, imgsz, batch_size, stride, single_cls=False, hyp=Non
     with torch_distributed_zero_first(rank):  # init dataset *.cache only once if DDP
         dataset = LoadImagesAndLabels(path, imgsz, batch_size,
                                       augment=augment,  # augmentation
+                                      val_augment = val_augment
                                       hyp=hyp,  # hyperparameters
                                       rect=rect,  # rectangular batches
                                       cache_images=cache,
@@ -379,10 +380,11 @@ class LoadImagesAndLabels(Dataset):
     # YOLOv5 train_loader/val_loader, loads images and labels for training and validation
     cache_version = 0.6  # dataset labels *.cache version
 
-    def __init__(self, path, img_size=640, batch_size=16, augment=False, hyp=None, rect=False, image_weights=False,
+    def __init__(self, path, img_size=640, batch_size=16, augment=False,val_augment=False,hyp=None, rect=False, image_weights=False,
                  cache_images=False, single_cls=False, stride=32, pad=0.0, prefix=''):
         self.img_size = img_size
         self.augment = augment
+        self.val_augment = val_augment
         self.hyp = hyp
         self.image_weights = image_weights
         self.rect = False if image_weights else rect
@@ -391,7 +393,7 @@ class LoadImagesAndLabels(Dataset):
         self.stride = stride
         self.path = path
         self.albumentations = Albumentations() if augment else None
-
+        self.val_albumentations = Val_Albumentations() if val_augment else None
         try:
             f = []  # image files
             for p in path if isinstance(path, list) else [path]:
@@ -609,10 +611,14 @@ class LoadImagesAndLabels(Dataset):
                 img = np.fliplr(img)
                 if nl:
                     labels[:, 1] = 1 - labels[:, 1]
-
+                    
             # Cutouts
             # labels = cutout(img, labels, p=0.5)
             # nl = len(labels)  # update after cutout
+            
+        if self.val_augment:
+           img, labels = self.val_albumentations(img, labels)
+           nl = len(labels)  # update after albumentations
 
         labels_out = torch.zeros((nl, 6))
         if nl:
