@@ -678,6 +678,10 @@ def load_image(self, i):
             assert im is not None, f'Image Not Found {path}'
         h0, w0 = im.shape[:2]  # orig hw
         r = self.img_size / max(h0, w0)  # ratio
+        image_hist1 = cv2.equalizeHist(im[:,:,0])
+        image_hist2 = cv2.equalizeHist(im[:,:,1])
+        image_hist3 = cv2.equalizeHist(im[:,:,2])
+        im = np.stack([image_hist1,image_hist2,image_hist3],axis=2)
         if r != 1:  # if sizes are not equal
             im = cv2.resize(im, (int(w0 * r), int(h0 * r)),
                             interpolation=cv2.INTER_AREA if r < 1 and not self.augment else cv2.INTER_LINEAR)
@@ -696,7 +700,6 @@ def load_mosaic(self, index):
     for i, index in enumerate(indices):
         # Load image
         img, _, (h, w) = load_image(self, index)
-        img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
         # place img in img4
         if i == 0:  # top left
             img4 = np.full((s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
